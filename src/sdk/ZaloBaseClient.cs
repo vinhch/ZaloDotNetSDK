@@ -8,7 +8,8 @@ namespace ZaloDotNetSDK {
 
         public bool isDebug = false;
 
-        protected string sendHttpGetRequest(string endpoint, Dictionary<string, dynamic> param, Dictionary<string, string> header) {
+        protected string sendHttpGetRequest(string endpoint, Dictionary<string, dynamic> param, Dictionary<string, string> header) => Utils.RunSync(async () =>
+        {
             UriBuilder builder = new UriBuilder(endpoint);
             var query = Utils.ParseQueryString(builder.Query);
             if (param != null) {
@@ -20,7 +21,7 @@ namespace ZaloDotNetSDK {
             }
             builder.Query = Utils.ToQueryString(query);
 
-            HttpClient httpClient = new HttpClient();
+            var httpClient = Utils.CreateHttpClient();
             if (header != null) {
                 foreach (KeyValuePair<string, string> entry in header) {
                     httpClient.DefaultRequestHeaders.Add(entry.Key, entry.Value);
@@ -30,21 +31,26 @@ namespace ZaloDotNetSDK {
             {
                 Console.WriteLine("GET: "+ builder.ToString());
             }
-            return httpClient.GetStringAsync(builder.ToString()).Result;
-        }
+            return await httpClient.GetStringAsync(builder.ToString());
+        });
 
-        protected string sendHttpPostRequest(string endpoint, Dictionary<string, dynamic> param, Dictionary<string, string> header) {
+        protected string sendHttpPostRequest(string endpoint, Dictionary<string, dynamic> param, Dictionary<string, string> header) => Utils.RunSync(async () =>
+        {
             Dictionary<string, string> paramsUrl = new Dictionary<string, string>();
-            HttpClient httpClient = new HttpClient();
-            if (header != null) {
-                foreach (KeyValuePair<string, string> entry in header) {
+            var httpClient = Utils.CreateHttpClient();
+            if (header != null)
+            {
+                foreach (KeyValuePair<string, string> entry in header)
+                {
                     httpClient.DefaultRequestHeaders.Add(entry.Key, entry.Value);
                 }
             }
-            if (param != null) {
+            if (param != null)
+            {
                 foreach (KeyValuePair<string, dynamic> entry in param)
                 {
-                    if (entry.Value is string) {
+                    if (entry.Value is string)
+                    {
                         paramsUrl[entry.Key] = entry.Value;
                     }
                 }
@@ -54,19 +60,23 @@ namespace ZaloDotNetSDK {
             {
                 UriBuilder builder = new UriBuilder(endpoint);
                 var query = Utils.ParseQueryString(builder.Query);
-                    foreach (KeyValuePair<string, string> entry in paramsUrl)
-                    {
-                            query[entry.Key] = entry.Value;
-                    }
+                foreach (KeyValuePair<string, string> entry in paramsUrl)
+                {
+                    query[entry.Key] = entry.Value;
+                }
                 builder.Query = Utils.ToQueryString(query);
                 Console.WriteLine("POST: " + builder.ToString());
             }
-            HttpResponseMessage response = httpClient.PostAsync(endpoint, formUrlEncodedContent).Result;
-            return response.Content.ReadAsStringAsync().Result;
-        }
 
-        protected string sendHttpPostRequestWithBody(string endpoint, Dictionary<string, dynamic> param, string body, Dictionary<string, string> header) {
-            HttpClient httpClient = new HttpClient();
+            using (var response = await httpClient.PostAsync(endpoint, formUrlEncodedContent))
+            {
+                return await response.Content.ReadAsStringAsync();
+            }
+        });
+
+        protected string sendHttpPostRequestWithBody(string endpoint, Dictionary<string, dynamic> param, string body, Dictionary<string, string> header) => Utils.RunSync(async () =>
+        {
+            var httpClient = Utils.CreateHttpClient();
             if (header != null) {
                 foreach (KeyValuePair<string, string> entry in header) {
                     httpClient.DefaultRequestHeaders.Add(entry.Key, entry.Value);
@@ -96,11 +106,14 @@ namespace ZaloDotNetSDK {
                 Console.WriteLine("body: " + body);
                 Console.WriteLine("body content: " + content);
             }
-            HttpResponseMessage response = httpClient.PostAsync(builder.ToString(), content).Result;
-            return response.Content.ReadAsStringAsync().Result;
-        }
 
-        protected string sendHttpUploadRequest(string endpoint, Dictionary<string, dynamic> param, Dictionary<string, string> header)
+            using (var response = await httpClient.PostAsync(builder.ToString(), content))
+            {
+                return await response.Content.ReadAsStringAsync();
+            }
+        });
+
+        protected string sendHttpUploadRequest(string endpoint, Dictionary<string, dynamic> param, Dictionary<string, string> header) => Utils.RunSync(async () =>
         {
             MultipartFormDataContent form = new MultipartFormDataContent();
 
@@ -120,7 +133,7 @@ namespace ZaloDotNetSDK {
             ZaloFile file = param["file"];
             form.Add(file.GetData(), "file", file.GetName());
 
-            HttpClient httpClient = new HttpClient();
+            var httpClient = Utils.CreateHttpClient();
             if (header != null)
             {
                 foreach (KeyValuePair<string, string> entry in header)
@@ -129,8 +142,10 @@ namespace ZaloDotNetSDK {
                 }
             }
 
-            HttpResponseMessage response = httpClient.PostAsync(builder.ToString(), form).Result;
-            return response.Content.ReadAsStringAsync().Result;
-        }
+            using (var response = await httpClient.PostAsync(builder.ToString(), form))
+            {
+                return await response.Content.ReadAsStringAsync();
+            }
+        });
     }
 }

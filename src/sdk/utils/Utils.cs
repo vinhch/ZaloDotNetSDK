@@ -6,6 +6,9 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+#if (NETSTANDARD2_0)
+using Microsoft.Extensions.DependencyInjection;
+#endif
 
 namespace ZaloDotNetSDK
 {
@@ -66,20 +69,30 @@ namespace ZaloDotNetSDK
                 .GetAwaiter()
                 .GetResult();
 
+#if (NETSTANDARD2_0)
+        private static readonly ServiceCollection _currentServiceCollection = new ServiceCollection();
+        private static readonly ServiceProvider _currentServiceProvider =
+            _currentServiceCollection.AddHttpClient()
+                .BuildServiceProvider();
+        private static readonly IHttpClientFactory _currentHttpClientFactory =
+            _currentServiceProvider.GetService<IHttpClientFactory>();
+        internal static HttpClient CreateHttpClient() => _currentHttpClientFactory.CreateClient();
+#else
         private static readonly HttpClient _currentHttpClient = new HttpClient();
         internal static HttpClient CreateHttpClient() => _currentHttpClient;
+#endif
 
-        internal static byte[] DownloadFile(string url)
+        internal static byte[] DownloadFile(string url) => RunSync(async () =>
         {
             var client = CreateHttpClient();
-            using (var result = RunSync(() => client.GetAsync(url)))
+            using (var result = await client.GetAsync(url))
             {
                 if (result.IsSuccessStatusCode)
                 {
-                    return RunSync(() => result.Content.ReadAsByteArrayAsync());
+                    return await result.Content.ReadAsByteArrayAsync();
                 }
             }
             return null;
-        }
+        });
     }
 }
