@@ -13,3 +13,9 @@ Install-Package vng.zalo.ZaloDotNetSDK
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+
+## Build and release
+
+```
+dotnet build --configuration Release
+```

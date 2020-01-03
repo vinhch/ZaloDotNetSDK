@@ -20,7 +20,7 @@ namespace ZaloDotNetSDK
         /// <remarks>
         /// Source for this method: https://stackoverflow.com/a/22046389
         /// </remarks>
-        internal static NameValueCollection ParseQueryString(string qs)
+        public static NameValueCollection ParseQueryString(string qs)
         {
             // Must use an absolute uri, else Uri.Query throws an InvalidOperationException
             var uri = new UriBuilder("http://example:3000")
@@ -38,7 +38,7 @@ namespace ZaloDotNetSDK
             return nvc;
         }
 
-        internal static string ToQueryString(NameValueCollection nvc)
+        public static string ToQueryString(NameValueCollection nvc)
         {
             var queryDictionary = new Dictionary<string, string>();
             foreach (var key in nvc.AllKeys)
@@ -55,14 +55,14 @@ namespace ZaloDotNetSDK
                 TaskContinuationOptions.None,
                 TaskScheduler.Default);
 
-        internal static TResult RunSync<TResult>(Func<Task<TResult>> func)
+        public static TResult RunSync<TResult>(Func<Task<TResult>> func)
             => _taskFactory
                 .StartNew(func)
                 .Unwrap()
                 .GetAwaiter()
                 .GetResult();
 
-        internal static void RunSync(Func<Task> func)
+        public static void RunSync(Func<Task> func)
             => _taskFactory
                 .StartNew(func)
                 .Unwrap()
@@ -76,13 +76,13 @@ namespace ZaloDotNetSDK
                 .BuildServiceProvider();
         private static readonly IHttpClientFactory _currentHttpClientFactory =
             _currentServiceProvider.GetService<IHttpClientFactory>();
-        internal static HttpClient CreateHttpClient() => _currentHttpClientFactory.CreateClient();
+        public static HttpClient CreateHttpClient() => _currentHttpClientFactory.CreateClient();
 #else
         private static readonly HttpClient _currentHttpClient = new HttpClient();
-        internal static HttpClient CreateHttpClient() => _currentHttpClient;
+        public static HttpClient CreateHttpClient() => _currentHttpClient;
 #endif
 
-        internal static byte[] DownloadFile(string url) => RunSync(async () =>
+        public static byte[] DownloadFile(string url) => RunSync(async () =>
         {
             var client = CreateHttpClient();
             using (var result = await client.GetAsync(url))

@@ -1,16 +1,20 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
 using ZaloDotNetSDK.entities;
-using ZaloDotNetSDK.utils;
 using ZaloDotNetSDK.entities.oa;
 using ZaloDotNetSDK.entities.shop;
+using ZaloDotNetSDK.utils;
 
 namespace ZaloDotNetSDK
 {
     public class ZaloClient : ZaloBaseClient
     {
-        string access_token = "";
+        private string access_token = "";
 
         public ZaloClient(string access_token)
         {
@@ -19,8 +23,10 @@ namespace ZaloDotNetSDK
 
         public string Access_token { get => access_token; set => access_token = value; }
 
-        public JObject excuteRequest(string method, string endPoint,  Dictionary<string, dynamic> param){
-            if (param == null) {
+        public JObject excuteRequest(string method, string endPoint, Dictionary<string, dynamic> param)
+        {
+            if (param == null)
+            {
                 param = new Dictionary<string, dynamic>();
             }
             param.Add("access_token", this.Access_token);
@@ -218,8 +224,9 @@ namespace ZaloDotNetSDK
             Dictionary<string, dynamic> param = new Dictionary<string, dynamic>();
 
             List<JObject> elementJson = new List<JObject>();
-            elementJson.Add(JObject.FromObject(new {
-                media_type= "image",
+            elementJson.Add(JObject.FromObject(new
+            {
+                media_type = "image",
                 url = image_url
             }));
 
@@ -861,7 +868,7 @@ namespace ZaloDotNetSDK
             return result;
         }
 
-        public JObject broadcastArticle(string attachment_id, TargetBroadcastGender gender, List<TargetBroadcastAges> ages=null, List<TargetBroadcastLocations> locations = null, List<TargetBroadcastCities> cities = null, List<TargetBroadcastPlatforms> platforms = null, List<TargetBroadcastTelcos> telcos = null)
+        public JObject broadcastArticle(string attachment_id, TargetBroadcastGender gender, List<TargetBroadcastAges> ages = null, List<TargetBroadcastLocations> locations = null, List<TargetBroadcastCities> cities = null, List<TargetBroadcastPlatforms> platforms = null, List<TargetBroadcastTelcos> telcos = null)
         {
             JObject result = new JObject();
             Dictionary<string, dynamic> param = new Dictionary<string, dynamic>();
@@ -1040,7 +1047,7 @@ namespace ZaloDotNetSDK
                         payload = new
                         {
                             template_type = "list",
-                            elements= elementsJson
+                            elements = elementsJson
                         }
                     }
                 }
@@ -1059,7 +1066,7 @@ namespace ZaloDotNetSDK
             JObject result = new JObject();
             Dictionary<string, dynamic> param = new Dictionary<string, dynamic>();
 
-            param.Add("body", JsonUtils.parseProduct2Json(product).ToString().Replace("\\","").Replace("\"[", "[").Replace("]\"", "]"));
+            param.Add("body", JsonUtils.parseProduct2Json(product).ToString().Replace("\\", "").Replace("\"[", "[").Replace("]\"", "]"));
 
             result = excuteRequest("POST", "https://openapi.zalo.me/v2.0/store/product/create", param);
 
@@ -1172,7 +1179,8 @@ namespace ZaloDotNetSDK
                     status,
                     edit_reason
                 });
-            } else if(cancel_reason != null)
+            }
+            else if (cancel_reason != null)
             {
                 body = JObject.FromObject(new
                 {
@@ -1180,7 +1188,8 @@ namespace ZaloDotNetSDK
                     status,
                     cancel_reason
                 });
-            } else
+            }
+            else
             {
                 body = JObject.FromObject(new
                 {
@@ -1345,5 +1354,67 @@ namespace ZaloDotNetSDK
         }
 
         //==========================Shop=====================================
+
+        private async Task<JObject> SendFilePrivateAsync(string endPoint, string userId,
+            string content, string fileName, Stream stream)
+        {
+            var jResponse = await UploadAsync(endPoint, stream, fileName).ConfigureAwait(false);
+            var errorCode = (int)jResponse["error"];
+            if (errorCode == 0)
+            {
+                var attachmentId = (string)jResponse["data"]["attachment_id"];
+                var result = sendImageMessageToUserIdByAttachmentId(userId, content, attachmentId);
+                return result;
+            }
+
+            return jResponse;
+        }
+
+        private async Task<JObject> UploadAsync(string endPoint, Stream stream, string fileName,
+            string mediaType = null, string boundary = "----MyGreatBoundary")
+        {
+            using (var multiPartContent = new MultipartFormDataContent(boundary))
+            using (var streamContent = new StreamContent(stream))
+            {
+                if (!string.IsNullOrWhiteSpace(mediaType))
+                {
+                    streamContent.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+
+                }
+
+                var builder = new UriBuilder(endPoint);
+                var query = ZaloDotNetSDK.Utils.ParseQueryString(builder.Query);
+                query["access_token"] = Access_token;
+                builder.Query = ZaloDotNetSDK.Utils.ToQueryString(query);
+
+                multiPartContent.Add(streamContent, "file", fileName);
+                var httpClient = ZaloDotNetSDK.Utils.CreateHttpClient();
+                foreach (var entry in APIConfig.DEFAULT_HEADER)
+                {
+                    httpClient.DefaultRequestHeaders.Add(entry.Key, entry.Value);
+                }
+
+                using (var response = await httpClient.PostAsync(builder.ToString(),
+                    multiPartContent).ConfigureAwait(false))
+                {
+                    var responseStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return JObject.Parse(responseStr);
+                }
+            }
+        }
+
+        public Task<JObject> SendImageAsync(string userId, string content,
+            string fileName, Stream stream)
+        {
+            return SendFilePrivateAsync("https://openapi.zalo.me/v2.0/oa/upload/image",
+                userId, content, fileName, stream);
+        }
+
+        public Task<JObject> SendFileAsync(string userId, string content,
+            string fileName, Stream stream)
+        {
+            return SendFilePrivateAsync("https://openapi.zalo.me/v2.0/oa/upload/file",
+                userId, content, fileName, stream);
+        }
     }
 }
